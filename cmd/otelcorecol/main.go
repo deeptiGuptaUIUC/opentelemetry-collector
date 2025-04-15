@@ -45,8 +45,8 @@ func main() {
 			panic(err)
 		}
 		fmt.Printf("Value of args: %v\n", args) // Add this line to print the value of args
-		//dprocs = append(dprocs, sym.(func() processor.Factory)())
-		dprocs = append(dprocs, sym.(processor.Factory))
+		dprocs = append(dprocs, sym.(func() processor.Factory)())
+		//dprocs = append(dprocs, sym.(processor.Factory))
 	}
 
 	staticComponents, saveErr := components(dprocs)

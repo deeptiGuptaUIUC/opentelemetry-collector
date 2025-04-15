@@ -6,6 +6,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/processor/batchprocessor"
 )
+import "go.opentelemetry.io/collector/processor"
 
 // Config represents the configuration for the processor.
 type Config struct {
@@ -22,7 +23,7 @@ func CreateDefaultConfig() component.Config {
 	}
 }
 
-func NewFactory() component.Factory {
+func NewFactory() processor.Factory {
 	return batchprocessor.NewFactory()
 }
 
