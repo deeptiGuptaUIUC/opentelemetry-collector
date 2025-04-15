@@ -8,6 +8,7 @@ import (
 	"os"
 	"plugin"
 	"strings"
+	"fmt"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/confmap"
@@ -43,7 +44,9 @@ func main() {
 			// BAD
 			panic(err)
 		}
-		dprocs = append(dprocs, sym.(func() processor.Factory)())
+		fmt.Printf("Value of args: %v\n", args) // Add this line to print the value of args
+		//dprocs = append(dprocs, sym.(func() processor.Factory)())
+		dprocs = append(dprocs, sym.(processor.Factory))
 	}
 
 	staticComponents, saveErr := components(dprocs)

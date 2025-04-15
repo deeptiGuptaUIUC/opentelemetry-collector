@@ -7,9 +7,20 @@ import (
 	"go.opentelemetry.io/collector/processor/batchprocessor"
 )
 
-// In the real impl, we'll add all sorts of version info here and then,
-// in the real (modified) main (or, part of `otelcol`) we will validate
-// for matching versions.
+// Config represents the configuration for the processor.
+type Config struct {
+	//component.ProcessorConfig
+}
+
+// CreateDefaultConfig creates the default configuration for the processor.
+func CreateDefaultConfig() component.Config {
+	return &Config{
+		// ProcessorConfig: component.ProcessorConfig{
+		// 	TypeVal: "Deepti",
+		// 	NameVal: "Deepti",
+		// },
+	}
+}
 
 func NewFactory() component.Factory {
 	return batchprocessor.NewFactory()
