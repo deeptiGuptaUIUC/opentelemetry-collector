@@ -1,11 +1,15 @@
 receivers:
   otlp:
-
+    protocols:
+      grpc:
+        endpoint: localhost:4317
 processors:
   batch:
 
 exporters:
   otlp:
+    endpoint: localhost:4317
+    compression: gzip
 
 service:
   pipelines:

@@ -5,12 +5,8 @@ package main
 
 import (
 	"log"
-	"os"
-	"plugin"
-	"strings"
-	"fmt"
+
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/confmap"
 	envprovider "go.opentelemetry.io/collector/confmap/provider/envprovider"
 	fileprovider "go.opentelemetry.io/collector/confmap/provider/fileprovider"
@@ -27,37 +23,9 @@ func main() {
 		Version:     "0.124.0-dev",
 	}
 
-	// Get a list of .so files
-	args := strings.Split(os.Getenv("OTEL_COLLECTOR_SHARED_LIBRARY"), ",")
-	var dprocs []processor.Factory
-	for _, arg := range args {
-		if arg == "" {
-			continue
-		}
-		pg, err := plugin.Open(arg)
-		if err != nil {
-			// BAD
-			panic(err)
-		}
-		sym, err := pg.Lookup("NewFactory")
-		if err != nil {
-			// BAD
-			panic(err)
-		}
-		fmt.Printf("Value of args: %v\n", args) // Add this line to print the value of args
-		dprocs = append(dprocs, sym.(func() processor.Factory)())
-		//dprocs = append(dprocs, sym.(processor.Factory))
-	}
-
-	staticComponents, saveErr := components(dprocs)
-
-	dynComps := func() (otelcol.Factories, error) {
-		return staticComponents, saveErr
-	}
-
 	set := otelcol.CollectorSettings{
 		BuildInfo: info,
-		Factories: dynComps,
+		Factories: components,
 		ConfigProviderSettings: otelcol.ConfigProviderSettings{
 			ResolverSettings: confmap.ResolverSettings{
 				ProviderFactories: []confmap.ProviderFactory{
