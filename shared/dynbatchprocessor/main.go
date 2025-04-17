@@ -16,10 +16,16 @@ type Config struct {
 // CreateDefaultConfig creates the default configuration for the processor.
 func CreateDefaultConfig() component.Config {
 	return &Config{
-		// ProcessorConfig: component.ProcessorConfig{
-		// 	TypeVal: "Deepti",
-		// 	NameVal: "Deepti",
-		// },
+		// Set default values for the configuration here.
+		// For example:
+		// 	Timeout: 5 * time.Second,
+		// 	MaxSize: 100,
+		// 	Timeout: 10 * time.Second,
+		// 	BatchTimeout: 5 * time.Second,
+		// 	BatchSendSize: 100,
+		// 	BatchSendTimeout: 5 * time.Second,
+		// 	BatchSendMaxSize: 1000,
+		// 	BatchSendTimeout: 10 * time.Second
 	}
 }
 
