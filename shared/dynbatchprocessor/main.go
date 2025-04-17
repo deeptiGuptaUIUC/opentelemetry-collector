@@ -4,9 +4,9 @@ import (
 	"C"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/batchprocessor"
 )
-import "go.opentelemetry.io/collector/processor"
 
 // Config represents the configuration for the processor.
 type Config struct {
