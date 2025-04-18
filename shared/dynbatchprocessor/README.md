@@ -33,7 +33,7 @@ This folder contains the following files:
 1. Run the following command in the `cmd/otelcorecol` folder:
 
    ```bash
-   go mod tidy && go build . && OTEL_COLLECTOR_SHARED_LIBRARY=/home/deeguptwsl/repos/github/opentelemetry-collector/shared/dynbatchprocessor/dynbatchprocessor.so go run . --config test.yaml
+   go mod tidy && go build . && OTEL_COLLECTOR_SHARED_LIBRARY=<add absolute path to .so file> go run . --config test.yaml
    ```
 
    Replace the above path with the path to your `.so` file.
