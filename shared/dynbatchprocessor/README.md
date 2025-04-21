@@ -58,14 +58,13 @@ To ensure compatibility, it is crucial that the plugin's dependencies match thos
 
    > **Note**: Ensure `jq` is installed. You can install it using your package manager (e.g., `sudo apt install jq` on Ubuntu).
 
-2. If you encounter a dependency error while loading the plugin, run the following command to identify where the dependency is coming from:
+Another way of managing dependencies is to run the following command to identify where the dependency is coming from:
 
    ```bash
    go mod why <package name>
    ```
+1. Modify the plugin's `go.mod` file to add, remove, or change the version of the dependency. You may need to add `replace` statements in the `go.mod` file.
 
-3. Modify the plugin's `go.mod` file to add, remove, or change the version of the dependency. You may need to add `replace` statements in the `go.mod` file.
+2. Rebuild the plugin using the steps described above.
 
-4. Rebuild the plugin using the steps described above.
-
-5. Repeat this process until all dependency issues are resolved.
+3. Repeat this process until all dependency issues are resolved.
