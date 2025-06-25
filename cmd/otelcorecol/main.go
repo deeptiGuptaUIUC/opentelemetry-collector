@@ -4,6 +4,7 @@
 package main
 
 import (
+	"C"
 	"log"
 	"os"
 	"plugin"
@@ -20,7 +21,19 @@ import (
 	"go.opentelemetry.io/collector/otelcol"
 )
 
-func main() {
+func main(){
+	os.Args = []string{"otelcorecol", "--config=./test.yaml"}
+	Main()
+}
+
+//export Main
+func Main() {
+	// Set os.Args when called as an exported function
+	// This is necessary when called from FFI since the normal main() function doesn't execute
+	if len(os.Args) <= 1 || os.Args[0] == "" {
+		os.Args = []string{"otelcorecol", "--config=./test.yaml"}
+	}
+	
 	info := component.BuildInfo{
 		Command:     "otelcorecol",
 		Description: "Local OpenTelemetry Collector binary, testing only.",
