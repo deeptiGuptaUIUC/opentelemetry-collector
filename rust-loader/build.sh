@@ -4,6 +4,9 @@
 
 set -e  # Exit on any error
 
+# Ensure we're using Go 1.23.8
+export PATH=/usr/local/go/bin:$PATH
+
 echo "Building OpenTelemetry Collector Rust Loader"
 echo "============================================"
 
@@ -11,12 +14,17 @@ echo "============================================"
 cd "$(dirname "$0")/.."
 
 # Build the Go shared library
-echo "Step 1: Updating Go dependencies..."
+echo "Step 1: Checking Go version..."
+GO_VERSION=$(go version)
+echo "Using Go version: $GO_VERSION"
+
+echo ""
+echo "Step 2: Updating Go dependencies..."
 echo "Running: go mod download"
 go mod download
 
 echo ""
-echo "Step 2: Building Go shared library..."
+echo "Step 3: Building Go shared library..."
 echo "Running: cd cmd/otelcorecol && CGO_ENABLED=1 go build -buildmode=c-shared -o ../../rust-loader/libotelcorecol.so ."
 
 cd cmd/otelcorecol && CGO_ENABLED=1 go build -buildmode=c-shared -o ../../rust-loader/libotelcorecol.so . && cd ../..
@@ -30,7 +38,7 @@ fi
 
 # Build the Rust loader
 echo ""
-echo "Step 3: Building Rust loader..."
+echo "Step 4: Building Rust loader..."
 cd rust-loader
 
 echo "Running: cargo build --release"
