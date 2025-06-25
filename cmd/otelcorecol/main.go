@@ -3,8 +3,12 @@
 // Program otelcorecol is an OpenTelemetry Collector binary.
 package main
 
+/*
+#include <stdlib.h>
+*/
+import "C"
+
 import (
-	"C"
 	"log"
 	"os"
 	"plugin"
@@ -28,6 +32,11 @@ func main(){
 
 //export Main
 func Main() {
+	MainWithPlugin(nil)
+}
+
+//export MainWithPlugin
+func MainWithPlugin(pluginPath *C.char) {
 	// Set os.Args when called as an exported function
 	// This is necessary when called from FFI since the normal main() function doesn't execute
 	if len(os.Args) <= 1 || os.Args[0] == "" {
@@ -40,26 +49,54 @@ func Main() {
 		Version:     "0.124.0-dev",
 	}
 
-	// Get a list of .so files
-	args := strings.Split(os.Getenv("OTEL_COLLECTOR_SHARED_LIBRARY"), ",")
+	// Handle plugin loading
 	var dprocs []processor.Factory
+	if pluginPath != nil {
+		pluginPathStr := C.GoString(pluginPath)
+		fmt.Printf("TRy this Loading plugin from Rust parameter: %s\n", pluginPathStr)
+		
+		if pluginPathStr != "" {
+			fmt.Printf("Before the plugin module!!! Am I able to open plugin?")
+			pg, err := plugin.Open(pluginPathStr)
+			if err != nil {
+				fmt.Printf("Error opening plugin %s: %v\n", pluginPathStr, err)
+				panic(err)
+			}
+			fmt.Printf("Am I able to open plugin?")
+
+			sym, err := pg.Lookup("NewFactory")
+			if err != nil {
+				fmt.Printf("Error looking up NewFactory in plugin %s: %v\n", pluginPathStr, err)
+				panic(err)
+			}
+			fmt.Printf("Successfully loaded plugin: %s\n", pluginPathStr)
+			dprocs = append(dprocs, sym.(func() processor.Factory)())
+		}
+	}
+	
+	// Also check environment variable as fallback
+	sharedLibEnv := os.Getenv("OTEL_COLLECTOR_SHARED_LIBRARY")
+	fmt.Printf("OTEL_COLLECTOR_SHARED_LIBRARY environment variable: '%s'\n", sharedLibEnv)
+	args := strings.Split(sharedLibEnv, ",")
+	fmt.Printf("Split args: %v\n", args)
 	for _, arg := range args {
 		if arg == "" {
+			fmt.Printf("Skipping empty arg\n")
 			continue
 		}
+		fmt.Printf("Loading plugin from env var: %s\n", arg)
 		pg, err := plugin.Open(arg)
 		if err != nil {
-			// BAD
+			fmt.Printf("Error opening plugin %s: %v\n", arg, err)
 			panic(err)
 		}
 		sym, err := pg.Lookup("NewFactory")
 		if err != nil {
-			// BAD
+			fmt.Printf("Error looking up NewFactory in plugin %s: %v\n", arg, err)
 			panic(err)
 		}
-		fmt.Printf("Value of args: %v\n", args) // Add this line to print the value of args
+		fmt.Printf("Successfully loaded plugin: %s\n", arg)
 		dprocs = append(dprocs, sym.(func() processor.Factory)())
-		//dprocs = append(dprocs, sym.(processor.Factory))
 	}
 
 	staticComponents, saveErr := components(dprocs)

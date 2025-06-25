@@ -5,6 +5,7 @@ use std::os::raw::c_char;
 
 // Define the function signature for the exported Main function from Go
 type MainFunc = unsafe extern "C" fn();
+type MainWithPluginFunc = unsafe extern "C" fn(*const c_char);
 
 // Function to set command line arguments in Go
 // This mimics what the Go main() function does
@@ -36,23 +37,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Configuration file not found".into());
     }
     
+    // Set the plugin path environment variable
+    let plugin_path = "/home/deeguptwsl/repos/opentelemetry-collector/shared/dynbatchprocessor/dynbatchprocessor.so";
+    if Path::new(plugin_path).exists() {
+        std::env::set_var("OTEL_COLLECTOR_SHARED_LIBRARY", plugin_path);
+        println!("Set plugin path: {}", plugin_path);
+    } else {
+        println!("Warning: Plugin not found at {}, running without plugin", plugin_path);
+    }
+    
+    // Print the environment variable to verify it's set correctly
+    match std::env::var("OTEL_COLLECTOR_SHARED_LIBRARY") {
+        Ok(value) => println!("OTEL_COLLECTOR_SHARED_LIBRARY environment variable: '{}'", value),
+        Err(e) => println!("OTEL_COLLECTOR_SHARED_LIBRARY not set or error: {}", e),
+    }
+    
     println!("Loading shared library: {}", lib_path);
     
     // Load the shared library
     let lib = unsafe { Library::new(lib_path)? };
     
-    // Get the Main function symbol
-    let main_func: Symbol<MainFunc> = unsafe { lib.get(b"Main")? };
+    // Try to get the MainWithPlugin function first, fall back to Main if not available
+    let plugin_path_cstr = CString::new(plugin_path)?;
     
-    println!("Successfully loaded Main function from shared library");
-    println!("Starting OpenTelemetry Collector...");
-    
-    // Set up arguments (this will be handled in the modified Go main function)
-    set_go_args()?;
-    
-    // Call the Main function directly
-    unsafe {
-        main_func();
+    // Try MainWithPlugin first
+    if let Ok(main_with_plugin_func) = unsafe { lib.get::<MainWithPluginFunc>(b"MainWithPlugin") } {
+        println!("Successfully loaded MainWithPlugin function from shared library");
+        println!("Starting OpenTelemetry Collector with plugin...");
+        
+        unsafe {
+            main_with_plugin_func(plugin_path_cstr.as_ptr());
+        }
+    } else {
+        // Fall back to Main function
+        let main_func: Symbol<MainFunc> = unsafe { lib.get(b"Main")? };
+        println!("Successfully loaded Main function from shared library");
+        println!("Starting OpenTelemetry Collector...");
+        
+        // Set up arguments (this will be handled in the modified Go main function)
+        set_go_args()?;
+        
+        // Call the Main function directly
+        unsafe {
+            main_func();
+        }
     }
     
     println!("OpenTelemetry Collector Main function completed");
