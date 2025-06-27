@@ -5,17 +5,41 @@ package main
 
 /*
 #include <stdlib.h>
+#include <dlfcn.h>
+#include <stdio.h>
+#include <string.h>
+
+// Force calling of .init_array functions using dlopen with proper flags
+static void force_init_array_execution(const char *plugin_path) {
+    printf("Forcing .init_array execution for: %s\n", plugin_path);
+
+    // Close and reopen the library with RTLD_NOW to force immediate symbol resolution
+    // and initialization. First, dlopen it again to ensure it's properly loaded.
+    void *handle = dlopen(plugin_path, RTLD_NOW | RTLD_GLOBAL);
+    if (handle == NULL) {
+        printf("Failed to dlopen %s: %s\n", plugin_path, dlerror());
+        return;
+    }
+
+    printf("Successfully forced library loading with RTLD_NOW | RTLD_GLOBAL\n");
+
+    // Don't close the handle - keep it open so the module stays loaded
+    // This ensures that any initialization that happened during dlopen
+    // remains in effect
+}
 */
 import "C"
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"plugin"
+	"runtime"
 	"strings"
-	"fmt"
+	"unsafe"
+
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/confmap"
 	envprovider "go.opentelemetry.io/collector/confmap/provider/envprovider"
 	fileprovider "go.opentelemetry.io/collector/confmap/provider/fileprovider"
@@ -23,9 +47,71 @@ import (
 	httpsprovider "go.opentelemetry.io/collector/confmap/provider/httpsprovider"
 	yamlprovider "go.opentelemetry.io/collector/confmap/provider/yamlprovider"
 	"go.opentelemetry.io/collector/otelcol"
+	"go.opentelemetry.io/collector/processor"
 )
 
-func main(){
+// Force runtime initialization when loaded as archive
+//
+//export InitGoRuntime
+func InitGoRuntime() {
+	// Ensure Go runtime is properly initialized
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	fmt.Printf("Go runtime initialized successfully\n")
+
+	// Debug runtime state
+	debugRuntimeState()
+
+	// Force module initialization
+	forceModuleInit()
+}
+
+// Alternative approach: Try to force module initialization
+func forceModuleInit() {
+	fmt.Printf("Forcing Go module initialization...\n")
+	runtime.GC() // Force garbage collection to ensure runtime is active
+
+	// Try to trigger any pending initialization
+	runtime.Gosched()
+
+	fmt.Printf("Module initialization attempted\n")
+}
+
+// Manual plugin loader that tries to work around the module initialization issue
+func loadPluginManually(pluginPath string) (*plugin.Plugin, error) {
+	fmt.Printf("Attempting manual plugin load for: %s\n", pluginPath)
+
+	// Force .init_array execution using C dlopen with proper flags
+	pathCStr := C.CString(pluginPath)
+	defer C.free(unsafe.Pointer(pathCStr))
+
+	fmt.Printf("Forcing .init_array execution via C dlopen...\n")
+	C.force_init_array_execution(pathCStr)
+
+	// Small delay to allow any background initialization to complete
+	runtime.Gosched()
+
+	// Now try plugin.Open - this should work if the module is properly loaded
+	fmt.Printf("Attempting plugin.Open after .init_array execution...\n")
+	pg, err := plugin.Open(pluginPath)
+	if err != nil {
+		fmt.Printf("plugin.Open failed after manual dlopen: %v\n", err)
+		return nil, fmt.Errorf("plugin.Open failed even after manual dlopen: %v", err)
+	}
+
+	fmt.Printf("Plugin loaded successfully after manual initialization\n")
+	return pg, nil
+}
+
+// Debug function to check runtime state
+func debugRuntimeState() {
+	fmt.Printf("=== Runtime Debug Info ===\n")
+	fmt.Printf("NumGoroutine: %d\n", runtime.NumGoroutine())
+	fmt.Printf("GOMAXPROCS: %d\n", runtime.GOMAXPROCS(0))
+	fmt.Printf("NumCPU: %d\n", runtime.NumCPU())
+	fmt.Printf("========================\n")
+}
+
+func main() {
 	os.Args = []string{"otelcorecol", "--config=./test.yaml"}
 	Main()
 }
@@ -42,7 +128,7 @@ func MainWithPlugin(pluginPath *C.char) {
 	if len(os.Args) <= 1 || os.Args[0] == "" {
 		os.Args = []string{"otelcorecol", "--config=./test.yaml"}
 	}
-	
+
 	info := component.BuildInfo{
 		Command:     "otelcorecol",
 		Description: "Local OpenTelemetry Collector binary, testing only.",
@@ -53,27 +139,27 @@ func MainWithPlugin(pluginPath *C.char) {
 	var dprocs []processor.Factory
 	if pluginPath != nil {
 		pluginPathStr := C.GoString(pluginPath)
-		fmt.Printf("TRy this Loading plugin from Rust parameter: %s\n", pluginPathStr)
-		
+		fmt.Printf("Loading plugin from Rust parameter: %s\n", pluginPathStr)
+
 		if pluginPathStr != "" {
-			fmt.Printf("Before the plugin module!!! Am I able to open plugin?")
-			pg, err := plugin.Open(pluginPathStr)
+			fmt.Printf("Attempting to load plugin: %s\n", pluginPathStr)
+			pg, err := loadPluginManually(pluginPathStr)
 			if err != nil {
 				fmt.Printf("Error opening plugin %s: %v\n", pluginPathStr, err)
 				panic(err)
 			}
-			fmt.Printf("Am I able to open plugin?")
+			fmt.Printf("Successfully opened plugin: %s\n", pluginPathStr)
 
 			sym, err := pg.Lookup("NewFactory")
 			if err != nil {
 				fmt.Printf("Error looking up NewFactory in plugin %s: %v\n", pluginPathStr, err)
 				panic(err)
 			}
-			fmt.Printf("Successfully loaded plugin: %s\n", pluginPathStr)
+			fmt.Printf("Successfully loaded plugin factory: %s\n", pluginPathStr)
 			dprocs = append(dprocs, sym.(func() processor.Factory)())
 		}
 	}
-	
+
 	// Also check environment variable as fallback
 	sharedLibEnv := os.Getenv("OTEL_COLLECTOR_SHARED_LIBRARY")
 	fmt.Printf("OTEL_COLLECTOR_SHARED_LIBRARY environment variable: '%s'\n", sharedLibEnv)
@@ -85,7 +171,7 @@ func MainWithPlugin(pluginPath *C.char) {
 			continue
 		}
 		fmt.Printf("Loading plugin from env var: %s\n", arg)
-		pg, err := plugin.Open(arg)
+		pg, err := loadPluginManually(arg)
 		if err != nil {
 			fmt.Printf("Error opening plugin %s: %v\n", arg, err)
 			panic(err)

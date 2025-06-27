@@ -1,6 +1,6 @@
 module dynbatchprocessor
 
-go 1.23.0
+go 1.24.1
 
 require (
 	go.opentelemetry.io/collector/component v1.30.0

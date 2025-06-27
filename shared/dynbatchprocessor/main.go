@@ -2,6 +2,7 @@ package main
 
 import (
 	"C"
+	"fmt"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/processor"
@@ -36,5 +37,6 @@ func NewFactory() processor.Factory {
 func main() {
 	// In the real world, be polite about it, or,
 	// In the real world, this is the entry point for a Collector that uses RPC.
-	panic("NOT USED")
+	//panic("NOT USED")
+	fmt.Println("Hello world")
 }
